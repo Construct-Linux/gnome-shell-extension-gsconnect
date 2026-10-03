@@ -4,11 +4,7 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
-
 import Meta from 'gi://Meta';
-
-import * as DBus from '../service/utils/dbus.js';
 
 
 /*
@@ -60,21 +56,18 @@ const TEXT_MIMETYPES = [
 /* GSConnectClipboardPortal:
  *
  * A simple clipboard portal, especially useful on Wayland where GtkClipboard
- * doesn't work in the background.
+ * doesn't work in the background. Only the GSConnect service may use it: any
+ * other session bus client would otherwise read and replace the clipboard
+ * without the user's knowledge.
  */
-export const Clipboard = GObject.registerClass({
-    GTypeName: 'GSConnectShellClipboard',
-    Signals: {
-        'OwnerChange': {
-            flags: GObject.SignalFlags.RUN_FIRST,
-            param_types: [],
-        },
-    },
-}, class GSConnectShellClipboard extends GObject.Object {
+export class Clipboard {
 
-    _init(params = {}) {
-        super._init();
-
+    /**
+     * @param {string} serviceOwner - Unique bus name of the GSConnect service
+     */
+    constructor(serviceOwner) {
+        this._serviceOwner = serviceOwner;
+        this._connection = null;
         this._transferring = false;
 
         // Watch global selection
@@ -85,7 +78,13 @@ export const Clipboard = GObject.registerClass({
         );
 
         // Prepare DBus interface
-        this._dbus = DBus.wrapObject(DBUS_INFO, this);
+        const handler = {};
+        for (const method of DBUS_INFO.methods) {
+            handler[`${method.name}Async`] = (params, invocation) => {
+                this._dispatch(method, params, invocation);
+            };
+        }
+        this._dbus = Gio.DBusExportedObject.wrapJSObject(DBUS_INFO, handler);
 
         this._nameId = Gio.DBus.own_name(
             Gio.BusType.SESSION,
@@ -95,6 +94,36 @@ export const Clipboard = GObject.registerClass({
             null,
             this._onNameLost.bind(this)
         );
+    }
+
+    async _dispatch(method, params, invocation) {
+        if (invocation.get_sender() !== this._serviceOwner) {
+            invocation.return_dbus_error(
+                'org.freedesktop.DBus.Error.AccessDenied',
+                `${method.name} is only available to the GSConnect service`
+            );
+            return;
+        }
+
+        try {
+            const result = await this[method.name](...params);
+
+            if (method.out_args.length === 0) {
+                invocation.return_value(null);
+            } else {
+                const signature = method.out_args.map(arg => arg.signature);
+                invocation.return_value(
+                    new GLib.Variant(`(${signature.join('')})`, [result])
+                );
+            }
+        } catch (e) {
+            if (e instanceof GLib.Error) {
+                invocation.return_gerror(e);
+            } else {
+                invocation.return_error_literal(Gio.DBusError,
+                    Gio.DBusError.FAILED, e.message);
+            }
+        }
     }
 
     _onOwnerChanged(selection, type, source) {
@@ -116,8 +145,11 @@ export const Clipboard = GObject.registerClass({
          * we'll end up with the previous selection's content.
          */
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-            this.emit('OwnerChange');
             this._transferring = false;
+
+            // Addressed to the service alone, like the methods
+            this._connection?.emit_signal(this._serviceOwner, DBUS_PATH,
+                DBUS_NAME, 'OwnerChange', null);
 
             return GLib.SOURCE_REMOVE;
         });
@@ -125,6 +157,7 @@ export const Clipboard = GObject.registerClass({
 
     _onBusAcquired(connection, name) {
         try {
+            this._connection = connection;
             this._dbus.export(connection, DBUS_PATH);
         } catch (e) {
             logError(e);
@@ -205,13 +238,6 @@ export const Clipboard = GObject.registerClass({
     SetText(text) {
         return new Promise((resolve, reject) => {
             try {
-                if (typeof text !== 'string') {
-                    throw new Gio.DBusError({
-                        code: Gio.DBusError.INVALID_ARGS,
-                        message: 'expected string',
-                    });
-                }
-
                 const source = Meta.SelectionSourceMemory.new(
                     'text/plain;charset=utf-8', GLib.Bytes.new(text));
 
@@ -294,8 +320,10 @@ export const Clipboard = GObject.registerClass({
         } catch (e) {
             logError(e);
         }
+
+        this._connection = null;
     }
-});
+}
 
 
 let _portal = null;
@@ -305,9 +333,6 @@ let _portalId = 0;
  * Watch for the service to start and export the clipboard portal when it does.
  */
 export function watchService() {
-    if (GLib.getenv('XDG_SESSION_TYPE') !== 'wayland')
-        return;
-
     if (_portalId > 0)
         return;
 
@@ -315,9 +340,9 @@ export function watchService() {
         Gio.BusType.SESSION,
         'org.gnome.Shell.Extensions.GSConnect',
         Gio.BusNameWatcherFlags.NONE,
-        () => {
-            if (_portal === null)
-                _portal = new Clipboard();
+        (connection, name, nameOwner) => {
+            _portal?.destroy();
+            _portal = new Clipboard(nameOwner);
         },
         () => {
             if (_portal !== null) {
@@ -328,12 +353,3 @@ export function watchService() {
     );
 }
 
-/**
- * Stop watching the service and export the portal if currently running.
- */
-export function unwatchService() {
-    if (_portalId > 0) {
-        Gio.bus_unwatch_name(_portalId);
-        _portalId = 0;
-    }
-}
