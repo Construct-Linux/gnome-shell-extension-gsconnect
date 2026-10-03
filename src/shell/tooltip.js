@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Clutter from 'gi://Clutter';
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
@@ -50,47 +49,6 @@ export default class Tooltip {
         }
     }
 
-    get custom() {
-        if (this._custom === undefined)
-            this._custom = null;
-
-        return this._custom;
-    }
-
-    set custom(actor) {
-        this._custom = actor;
-        this._markup = null;
-        this._text = null;
-
-        if (this._showing)
-            this._show();
-    }
-
-    get gicon() {
-        if (this._gicon === undefined)
-            this._gicon = null;
-
-        return this._gicon;
-    }
-
-    set gicon(gicon) {
-        this._gicon = gicon;
-
-        if (this._showing)
-            this._show();
-    }
-
-    get icon() {
-        return (this.gicon) ? this.gicon.name : null;
-    }
-
-    set icon(icon_name) {
-        if (!icon_name)
-            this.gicon = null;
-        else
-            this.gicon = new Gio.ThemedIcon({name: icon_name});
-    }
-
     get markup() {
         if (this._markup === undefined)
             this._markup = null;
@@ -121,28 +79,6 @@ export default class Tooltip {
             this._show();
     }
 
-    get x_offset() {
-        if (this._x_offset === undefined)
-            this._x_offset = 0;
-
-        return this._x_offset;
-    }
-
-    set x_offset(offset) {
-        this._x_offset = (Number.isInteger(offset)) ? offset : 0;
-    }
-
-    get y_offset() {
-        if (this._y_offset === undefined)
-            this._y_offset = 0;
-
-        return this._y_offset;
-    }
-
-    set y_offset(offset) {
-        this._y_offset = (Number.isInteger(offset)) ? offset : 0;
-    }
-
     _show() {
         if (this.text === null && this.markup === null)
             return this._hide();
@@ -153,42 +89,15 @@ export default class Tooltip {
                 opacity: 232,
             });
 
-            if (this.custom) {
-                this._bin.child = this.custom;
-            } else {
-                this._bin.child = new St.BoxLayout(
-                    {orientation: Clutter.Orientation.HORIZONTAL}
-                );
-
-                if (this.gicon) {
-                    this._bin.child.icon = new St.Icon({
-                        gicon: this.gicon,
-                        y_align: St.Align.START,
-                    });
-                    this._bin.child.icon.set_y_align(Clutter.ActorAlign.START);
-                    this._bin.child.add_child(this._bin.child.icon);
-                }
-
-                this.label = new St.Label({text: this.markup || this.text});
-                this.label.clutter_text.line_wrap = true;
-                this.label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD;
-                this.label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
-                this.label.clutter_text.use_markup = (this.markup);
-                this._bin.child.add_child(this.label);
-            }
+            this.label = new St.Label({text: this.markup || this.text});
+            this.label.clutter_text.line_wrap = true;
+            this.label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD;
+            this.label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+            this.label.clutter_text.use_markup = (this.markup);
+            this._bin.child = this.label;
 
             Main.layoutManager.addTopChrome(this._bin);
-        } else if (this.custom) {
-            this._bin.child = this.custom;
         } else {
-            if (this._bin.child.icon)
-                this._bin.child.icon.destroy();
-
-            if (this.gicon) {
-                this._bin.child.icon = new St.Icon({gicon: this.gicon});
-                this._bin.child.insert_child_at_index(this._bin.child.icon, 0);
-            }
-
             this.label.clutter_text.text = this.markup || this.text;
             this.label.clutter_text.use_markup = (this.markup);
         }
@@ -196,9 +105,6 @@ export default class Tooltip {
         // Position tooltip
         let [x, y] = this.parent.get_transformed_position();
         x = (x + (this.parent.width / 2)) - Math.round(this._bin.width / 2);
-
-        x += this.x_offset;
-        y += this.y_offset;
 
         // Show tooltip
         if (this._showing) {
@@ -241,10 +147,6 @@ export default class Tooltip {
                 transition: Clutter.AnimationMode.EASE_OUT_QUAD,
                 onComplete: () => {
                     Main.layoutManager.removeChrome(this._bin);
-
-                    if (this.custom)
-                        this._bin.remove_child(this.custom);
-
                     this._bin.destroy();
                     this._bin = null;
                 },
@@ -293,9 +195,6 @@ export default class Tooltip {
         this.parent.disconnect(this._hoverId);
         if (this._pressedId)
             this.parent.disconnect(this._pressedId);
-
-        if (this.custom)
-            this.custom.destroy();
 
         if (this._bin) {
             Main.layoutManager.removeChrome(this._bin);
