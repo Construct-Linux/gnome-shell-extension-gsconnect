@@ -31,7 +31,6 @@ const Session = class {
             const userName = GLib.get_user_name();
             let sessionPath = '/org/freedesktop/login1/session/auto';
 
-            // eslint-disable-next-line no-unused-vars
             for (const [num, uid, name, seat, objectPath] of sessions) {
                 if (name === userName) {
                     sessionPath = objectPath;

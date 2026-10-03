@@ -90,7 +90,6 @@ for (const path of [Config.CACHEDIR, Config.CONFIGDIR, Config.RUNTIMEDIR])
  * @param {string} [prefix] - An optional prefix for the warning
  */
 const _debugCallerMatch = new RegExp(/^([^@]+)@(.*):(\d+):(\d+)$/);
-// eslint-disable-next-line func-style
 const _debugFunc = function (error, prefix = null) {
     let caller, message;
 

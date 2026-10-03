@@ -212,7 +212,6 @@ export function patchGSConnectNotificationSource() {
  */
 const __ensureAppSource = GtkNotificationDaemon.prototype._ensureAppSource;
 
-// eslint-disable-next-line func-style
 const _ensureAppSource = function (appId) {
     const source = __ensureAppSource.call(this, appId);
 

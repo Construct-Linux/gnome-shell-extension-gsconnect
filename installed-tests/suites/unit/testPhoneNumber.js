@@ -4,7 +4,6 @@
 
 import Config from '../config.js';
 
-// eslint-disable-next-line no-unused-vars
 const {default: Service} = await import(`file://${Config.PACKAGE_DATADIR}/service/init.js`);
 
 
