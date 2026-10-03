@@ -26,6 +26,8 @@ test_config_js = configure_file(
   configuration: extconfig,
 )
 
+env_util = find_program('env')
+
 installed_tests_prepared = custom_target(
   'prepare-tests',
   build_by_default: true,
