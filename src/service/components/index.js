@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-import * as atspi from './atspi.js';
 import * as clipboard from './clipboard.js';
 import * as contacts from './contacts.js';
 import * as input from './input.js';
@@ -12,12 +11,10 @@ import * as pulseaudio from './pulseaudio.js';
 import * as session from './session.js';
 import * as sound from './sound.js';
 import * as upower from './upower.js';
-import * as ydotool from './ydotool.js';
 
 export const functionOverrides = {};
 
 const components = {
-    atspi,
     clipboard,
     contacts,
     input,
@@ -27,7 +24,6 @@ const components = {
     session,
     sound,
     upower,
-    ydotool,
 };
 
 /*

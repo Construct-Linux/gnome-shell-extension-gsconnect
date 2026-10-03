@@ -30,10 +30,7 @@ const PresenterPlugin = GObject.registerClass({
     _init(device) {
         super._init(device, 'presenter');
 
-        if (!globalThis.HAVE_GNOME)
-            this._input = Components.acquire('ydotool');
-        else
-            this._input = Components.acquire('input');
+        this._input = Components.acquire('input');
     }
 
     handlePacket(packet) {
@@ -49,12 +46,8 @@ const PresenterPlugin = GObject.registerClass({
     }
 
     destroy() {
-        if (this._input !== undefined) {
-            if (!globalThis.HAVE_GNOME)
-                this._input = Components.release('ydotool');
-            else
-                this._input = Components.release('input');
-        }
+        if (this._input !== undefined)
+            this._input = Components.release('input');
 
         super.destroy();
     }

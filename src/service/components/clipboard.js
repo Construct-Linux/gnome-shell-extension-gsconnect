@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
-import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 
@@ -62,10 +60,7 @@ const Clipboard = GObject.registerClass({
         if (typeof content !== 'string')
             return;
 
-        if (this._clipboard instanceof Gtk.Clipboard)
-            this._clipboard.set_text(content, -1);
-
-        if (this._clipboard instanceof Gio.DBusProxy) {
+        if (this._clipboard !== null) {
             this._clipboard.call('SetText', new GLib.Variant('(s)', [content]),
                 Gio.DBusCallFlags.NO_AUTO_START, -1, this._cancellable)
                 .catch(debug);
@@ -74,12 +69,6 @@ const Clipboard = GObject.registerClass({
 
     async _onNameAppeared(connection, name, name_owner) {
         try {
-            // Cleanup the GtkClipboard
-            if (this._clipboard && this._ownerChangeId > 0) {
-                this._clipboard.disconnect(this._ownerChangeId);
-                this._ownerChangeId = 0;
-            }
-
             // Create a proxy for the remote clipboard
             this._clipboard = new Gio.DBusProxy({
                 g_bus_type: Gio.BusType.SESSION,
@@ -96,19 +85,6 @@ const Clipboard = GObject.registerClass({
                 this._onOwnerChange.bind(this));
 
             this._onOwnerChange();
-            if (!globalThis.HAVE_GNOME) {
-                // Directly subscrible signal
-                this.signalHandler = Gio.DBus.session.signal_subscribe(
-                    null,
-                    DBUS_NAME,
-                    'OwnerChange',
-                    DBUS_PATH,
-                    null,
-                    Gio.DBusSignalFlags.NONE,
-                    this._onOwnerChange.bind(this)
-                );
-            }
-
         } catch (e) {
             if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
                 debug(e);
@@ -120,24 +96,15 @@ const Clipboard = GObject.registerClass({
     _onNameVanished(connection, name) {
         if (this._clipboard && this._ownerChangeId > 0) {
             this._clipboard.disconnect(this._ownerChangeId);
-            this._clipboardChangedId = 0;
+            this._ownerChangeId = 0;
         }
 
-        const display = Gdk.Display.get_default();
-        this._clipboard = Gtk.Clipboard.get_default(display);
-
-        this._ownerChangeId = this._clipboard.connect('owner-change',
-            this._onOwnerChange.bind(this));
-
-        this._onOwnerChange();
+        this._clipboard = null;
     }
 
     async _onOwnerChange() {
         try {
-            if (this._clipboard instanceof Gtk.Clipboard)
-                await this._gtkUpdateText();
-
-            else if (this._clipboard instanceof Gio.DBusProxy)
+            if (this._clipboard !== null)
                 await this._proxyUpdateText();
         } catch (e) {
             if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
@@ -176,29 +143,6 @@ const Clipboard = GObject.registerClass({
         this._applyUpdate(text);
     }
 
-    /*
-     * GtkClipboard
-     */
-    async _gtkUpdateText() {
-        const mimetypes = await new Promise((resolve, reject) => {
-            this._clipboard.request_targets((clipboard, atoms) => resolve(atoms));
-        });
-
-        // Special case for a cleared clipboard
-        if (mimetypes.length === 0)
-            return this._applyUpdate('');
-
-        // Special case to ignore copied files
-        if (mimetypes.includes('text/uri-list'))
-            return;
-
-        const text = await new Promise((resolve, reject) => {
-            this._clipboard.request_text((clipboard, text) => resolve(text));
-        });
-
-        this._applyUpdate(text);
-    }
-
     destroy() {
         if (this._cancellable.is_cancelled())
             return;
@@ -214,9 +158,6 @@ const Clipboard = GObject.registerClass({
             Gio.bus_unwatch_name(this._nameWatcherId);
             this._nameWatcherId = 0;
         }
-
-        if (!globalThis.HAVE_GNOME && this.signalHandler)
-            Gio.DBus.session.signal_unsubscribe(this.signalHandler);
     }
 });
 

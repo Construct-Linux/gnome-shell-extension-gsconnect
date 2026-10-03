@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-import {watchService} from '../wl_clipboard.js';
-
 import Gio from 'gi://Gio';
 import GIRepository from 'gi://GIRepository';
 import GLib from 'gi://GLib';
@@ -114,9 +112,6 @@ for (const path of [Config.CACHEDIR, Config.CONFIGDIR, Config.RUNTIMEDIR])
     GLib.mkdir_with_parents(path, 0o755);
 
 
-globalThis.HAVE_GNOME = GLib.getenv('GSCONNECT_MODE')?.toLowerCase() !== 'cli' && (GLib.getenv('GNOME_SETUP_DISPLAY') !== null || GLib.getenv('XDG_CURRENT_DESKTOP')?.toUpperCase()?.includes('GNOME') || GLib.getenv('XDG_SESSION_DESKTOP')?.toLowerCase() === 'gnome');
-
-
 /**
  * A custom debug function that logs at LEVEL_MESSAGE to avoid the need for env
  * variables to be set.
@@ -164,14 +159,6 @@ if (settings.get_boolean('debug')) {
 } else {
     // Swap the function out for a no-op anonymous function for speed
     globalThis.debug = () => {};
-}
-
-/**
- * Start wl_clipboard if not under Gnome
- */
-if (!globalThis.HAVE_GNOME) {
-    console.debug('Not running as a Gnome extension');
-    watchService();
 }
 
 

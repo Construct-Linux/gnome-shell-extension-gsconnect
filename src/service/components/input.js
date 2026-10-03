@@ -7,8 +7,6 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 
-import AtspiController from './atspi.js';
-
 
 const SESSION_TIMEOUT = 300;
 
@@ -334,13 +332,8 @@ export default class Controller {
         if (this._session !== null)
             return this._session;
 
-        // Mutter's RemoteDesktop is not available, fall back to Atspi
-        if (this.connection === null) {
-            debug('Falling back to Atspi');
-
-            this._session = new AtspiController();
-            return this._session;
-        }
+        if (this.connection === null)
+            throw new Error('Mutter RemoteDesktop is not available');
 
         try {
             // Mutter is available and there isn't another session starting

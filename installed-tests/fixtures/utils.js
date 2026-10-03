@@ -29,10 +29,6 @@ const {default: Plugin} = await import(`file://${Config.PACKAGE_DATADIR}/service
 const {ChannelService} = await import('./backend.js');
 
 
-// Force testing under GNOME
-globalThis.HAVE_GNOME = true;
-
-
 /*
  * File Helpers
  */
