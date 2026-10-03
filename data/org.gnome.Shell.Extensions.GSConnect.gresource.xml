@@ -65,11 +65,5 @@ SPDX-License-Identifier: GPL-2.0-or-later
     <file compressed="true" preprocess="xml-stripblanks">icons/mouse-left-button-symbolic.svg</file>
     <file compressed="true" preprocess="xml-stripblanks">icons/mouse-right-button-symbolic.svg</file>
     <file compressed="true" preprocess="xml-stripblanks">icons/mouse-with-smaller-scrollwheel-symbolic.svg</file>
-
-    <!-- WebExtension Manifests & Badges -->
-    <file compressed="true">webextension/org.gnome.shell.extensions.gsconnect.json.google.in</file>
-    <file compressed="true">webextension/org.gnome.shell.extensions.gsconnect.json.mozilla.in</file>
-    <file compressed="true">images/chrome-badge.png</file>
-    <file compressed="true">images/firefox-badge.png</file>
   </gresource>
 </gresources>

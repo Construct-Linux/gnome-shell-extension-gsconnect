@@ -4,7 +4,6 @@
 
 subdir('firewalld')
 subdir('metainfo')
-subdir('webextension')
 
 
 # metadata.json

@@ -66,37 +66,6 @@ option(
   description: 'Install file browser extension for Nemo'
 )
 
-# WebExtension manifest installation
-# NOTE: this is NOT the WebExtension, but is REQUIRED for it to work.
-option(
-  'webextension',
-  type: 'boolean',
-  value: true,
-  description: 'Install WebExtension manifest for Chrome, Chromium & Firefox'
-)
-
-# Override manifest install so that BROWSER_NMHDIR/foo.json
-option(
-  'chrome_nmhdir',
-  type: 'string',
-  value: '',
-  description: 'Native Messaging Host directory for Chrome'
-)
-
-option(
-  'chromium_nmhdir',
-  type: 'string',
-  value: '',
-  description: 'Native Messaging Host directory for Chromium'
-)
-
-option(
-  'mozilla_nmhdir',
-  type: 'string',
-  value: '',
-  description: 'Native Messaging Host directory for Mozilla'
-)
-
 option(
   'installed_tests',
   type: 'boolean',
