@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-import GLib from 'gi://GLib';
-
 import * as Utils from '../fixtures/utils.js';
 
 import Config from '../config.js';
@@ -25,6 +23,9 @@ describe('Manager', function () {
 
         spyOn(manager, '_loadDevices').and.callThrough();
         spyOn(manager, '_loadBackends');
+
+        // Disable auto-reconnect
+        spyOn(manager, '_scheduleReconnect');
     });
 
     afterAll(function () {
@@ -39,10 +40,6 @@ describe('Manager', function () {
 
     it('can be started', function () {
         manager.start();
-
-        // Disable auto-reconnect
-        GLib.Source.remove(manager._reconnectId);
-        manager._reconnectId = 0;
 
         expect(manager.active).toBeTrue();
         expect(manager._loadDevices).toHaveBeenCalled();

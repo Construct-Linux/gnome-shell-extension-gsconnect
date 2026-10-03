@@ -19,6 +19,11 @@ const DEVICE_NAME = 'org.gnome.Shell.Extensions.GSConnect.Device';
 const DEVICE_PATH = '/org/gnome/Shell/Extensions/GSConnect/Device';
 const DEVICE_IFACE = Config.DBUS.lookup_interface(DEVICE_NAME);
 
+// Seconds between attempts to reach disconnected devices, doubling up to the
+// maximum while they stay away
+const RECONNECT_MIN = 5;
+const RECONNECT_MAX = 60;
+
 
 const backends = {
     lan: LanBackend,
@@ -80,7 +85,9 @@ const Manager = GObject.registerClass({
         super._init(params);
 
         this._exported = new WeakMap();
+        this._connectedChangedIds = new Map();
         this._reconnectId = 0;
+        this._reconnectDelay = RECONNECT_MIN;
 
         this._settings = new Gio.Settings({
             settings_schema: Config.GSCHEMA.lookup(Config.APP_ID, true),
@@ -324,6 +331,7 @@ const Manager = GObject.registerClass({
         for (const id of this.settings.get_strv('devices')) {
             const device = new Device({body: {deviceId: id}});
             this._exportDevice(device);
+            this._trackDevice(device);
             this.devices.set(id, device);
         }
     }
@@ -416,10 +424,14 @@ const Manager = GObject.registerClass({
 
             device = new Device(packet);
             this._exportDevice(device);
+            this._trackDevice(device);
             this.devices.set(device.id, device);
 
             // Notify
             this.settings.set_strv('devices', Array.from(this.devices.keys()));
+
+            // Prune it later if the connection never completes
+            this._scheduleReconnect();
         }
 
         return device;
@@ -447,11 +459,74 @@ const Manager = GObject.registerClass({
         this.settings.set_strv('devices', Array.from(this.devices.keys()));
     }
 
+    _trackDevice(device) {
+        const id = device.connect(
+            'notify::connected',
+            this._onDeviceConnectedChanged.bind(this)
+        );
+        this._connectedChangedIds.set(device, id);
+    }
+
+    _untrackDevice(device) {
+        const id = this._connectedChangedIds.get(device);
+
+        if (id !== undefined) {
+            device.disconnect(id);
+            this._connectedChangedIds.delete(device);
+        }
+    }
+
+    _onDeviceConnectedChanged(device) {
+        if (device.connected)
+            return;
+
+        // Start over from the shortest delay for a device that just left
+        this._reconnectDelay = RECONNECT_MIN;
+
+        if (this._reconnectId > 0) {
+            GLib.Source.remove(this._reconnectId);
+            this._reconnectId = 0;
+        }
+
+        this._scheduleReconnect();
+    }
+
     /**
-     * A GSourceFunc that tries to reconnect to each paired device, while
-     * pruning unpaired devices that have disconnected.
-     *
-     * @returns {boolean} Always %true
+     * Arm a single reconnect attempt while any device is disconnected, backing
+     * off from RECONNECT_MIN to RECONNECT_MAX seconds.
+     */
+    _scheduleReconnect() {
+        if (!this.active || this._reconnectId > 0)
+            return;
+
+        const pending = Array.from(this.devices.values()).some(device => {
+            return !device.connected;
+        });
+
+        if (!pending) {
+            this._reconnectDelay = RECONNECT_MIN;
+            return;
+        }
+
+        this._reconnectId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_LOW,
+            this._reconnectDelay,
+            () => {
+                this._reconnectId = 0;
+                this._reconnect();
+
+                this._reconnectDelay = Math.min(this._reconnectDelay * 2,
+                    RECONNECT_MAX);
+                this._scheduleReconnect();
+
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    /**
+     * Try to reconnect to each paired device, while pruning unpaired devices
+     * that have disconnected.
      */
     _reconnect() {
         for (const [id, device] of this.devices) {
@@ -463,12 +538,11 @@ const Manager = GObject.registerClass({
                 continue;
             }
 
+            this._untrackDevice(device);
             this._unexportDevice(device);
             this._removeDevice(id);
             device.destroy();
         }
-
-        return GLib.SOURCE_CONTINUE;
     }
 
     /**
@@ -510,16 +584,11 @@ const Manager = GObject.registerClass({
         this._loadDevices();
         this._loadBackends();
 
-        if (this._reconnectId === 0) {
-            this._reconnectId = GLib.timeout_add_seconds(
-                GLib.PRIORITY_LOW,
-                5,
-                this._reconnect.bind(this)
-            );
-        }
-
         this._active = true;
         this.notify('active');
+
+        this._reconnectDelay = RECONNECT_MIN;
+        this._scheduleReconnect();
     }
 
     /**
@@ -539,7 +608,10 @@ const Manager = GObject.registerClass({
         this.backends.forEach(backend => backend.destroy());
         this.backends.clear();
 
-        this.devices.forEach(device => device.destroy());
+        this.devices.forEach(device => {
+            this._untrackDevice(device);
+            device.destroy();
+        });
         this.devices.clear();
 
         this._active = false;
