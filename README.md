@@ -4,65 +4,76 @@ SPDX-FileCopyrightText: GSConnect Developers https://github.com/GSConnect
 SPDX-License-Identifier: GPL-2.0-or-later
 -->
 
-# GSConnect
+# GSConnect (CONSTRUCT fork)
 
-[<img src="https://raw.githubusercontent.com/andyholmes/gnome-shell-extensions-badge/master/get-it-on-ego.svg?sanitize=true" alt="Get it on GNOME Extensions" height="100" align="middle">][ego] [<img alt="Available in the Chrome Web Store" src="https://raw.githubusercontent.com/GSConnect/gnome-shell-extension-gsconnect/main/data/images/chrome-badge.png" align="middle" hspace="12"/>][chrome] [<img src="https://raw.githubusercontent.com/GSConnect/gnome-shell-extension-gsconnect/main/data/images/firefox-badge.png" alt="Get the Add-On" align="middle">][firefox]
+GSConnect is an implementation of [KDE Connect][kdeconnect] for GNOME Shell:
+pair a phone or another desktop to share files, links and text, sync the
+clipboard, contacts and notifications, send and receive messages, control
+media players and the system volume, and run predefined commands. The KDE
+Connect team has applications for Android, iOS, Linux, macOS and Windows.
 
-## Overview
+This is the fork CONSTRUCT builds. It follows upstream's `main` on the
+`gnome-51` branch and targets GNOME Shell 51 on Wayland only.
 
-[GSConnect][ego] is a complete implementation of [KDE Connect][kdeconnect]
-especially for GNOME Shell with Nautilus, [Chrome][chrome] and
-[Firefox][firefox] integration. The KDE Connect team has applications for Linux,
-BSD, Android, Sailfish, iOS, macOS and Windows.
+## Changes from upstream
 
-With GSConnect you can securely connect to mobile devices and other desktops to:
+- **Nothing of GSConnect stays alive on the lock screen.** The
+  `keep-alive-when-locked` option replaced mutter's remote access inhibitor
+  with a no-op, which left remote input working while locked and made the
+  shell's uninhibit on unlock underflow mutter's counter. It is gone: the
+  service stops when the session locks and starts again on unlock, without
+  rewriting settings each time.
+- **The clipboard portal answers only the GSConnect service.** The shell's
+  `org.gnome.Shell.Extensions.GSConnect.Clipboard` refuses every other
+  session bus client, and the service follows the clipboard only while a
+  device has clipboard sending on.
+- **Less work in the shell and the service**: no Gtk loaded into
+  gnome-shell, menus rebuilt only when their model changes, reconnect
+  attempts only while a known device is away (5 s backing off to 60 s), and
+  no openssl run to read the certificate's common name.
+- **Fixes for 51**: the device menu's icon buttons are no longer at the mercy
+  of the tooltip's click gesture, and notifications go through the shell's
+  own message tray code.
+- **GNOME Shell 51 only**: `metadata.json` lists 51, and the code for older
+  shells, GLib before 2.80, GIRepository 2.0 and desktops other than GNOME
+  (wl-clipboard, ydotool, AT-SPI, the `gsconnect` CLI) is gone.
+- **System install only**: no user-install setup, browser add-ons, native
+  messaging host, Nautilus/Nemo extension, AppStream metainfo or firewalld
+  service file.
+- **Repository trimmed** to what the package is built from: no GitHub
+  workflows, Crowdin config, zip packaging, ESLint or Python lint tooling.
 
-* Share files, links and text
-* Send and receive messages
-* Sync clipboard content
-* Sync contacts
-* Sync notifications
-* Control media players
-* Control system volume
-* Execute predefined commands
-* And more…
+## Building
 
-Please see the **[Wiki][wiki]** for more information about
-**[Features][features]** and **[Help][help]**.
+GSConnect builds with meson:
 
-## Project Status
+```sh
+meson setup _build --prefix=/usr \
+    -Dgnome_shell_libdir=/usr/lib \
+    -Dinstalled_tests=false
+meson install -C _build
+```
 
-GSConnect is now under the GitHub organisation [GSConnect][gsconnect-org].
+It installs the extension into
+`/usr/share/gnome-shell/extensions/gsconnect@andyholmes.github.io`, its
+schema, the `org.gnome.Shell.Extensions.GSConnect` D-Bus service and desktop
+entries, the application icons and the translations. `gnome_shell_libdir` is
+the directory holding `gnome-shell/Gvc-1.0.typelib`, which the system volume
+plugin loads.
 
-Please note, this project has migrated from a developer-driven model to a
-community-driven model. This means that GSConnect does not have dedicated
-developers working on new features or bug fixes. Instead, the project relies on
-contributions from its users and distributions that choose to package it.
+The service and the preferences window are GTK 3 programs run with gjs, so
+the image needs the Gtk-3.0, Gdk-3.0, GdkPixbuf and Pango typelibs,
+`openssl` to create the device certificate, and `ssh-keygen` and `ssh-add`
+for SFTP browsing. KDE Connect talks over TCP and UDP ports 1714 to 1764.
 
-If you would like to take a more active role in the development and maintenance
-of GSConnect, you can start by [triaging new issues][issues],
-[fixing confirmed issues][help-wanted] and [reviewing contributions][needs-review].
-If you need additional permissions, you may request them from one of the
-[current maintainers][people].
+`meson test -C _build` runs the Jasmine suites in `installed-tests/`.
 
-## Nightly Builds
+## Attribution and license
 
-For early updaters of GNOME Shell and those that wish to test the upcoming version
-of GSConnect, there are automated builds available for [download][nightly-build].
-See [Installing from Nightly Build][nightly-install] for installation instructions.
+GSConnect is by Andy Holmes and the other GSConnect developers and
+translators: <https://github.com/GSConnect/gnome-shell-extension-gsconnect>.
 
-[ego]: https://extensions.gnome.org/extension/1319/gsconnect/
-[chrome]: https://chrome.google.com/webstore/detail/gsconnect/jfnifeihccihocjbfcfhicmmgpjicaec
-[firefox]: https://addons.mozilla.org/firefox/addon/gsconnect/
+GPL-2.0-or-later, except `installed-tests/jasmine.js` (MPL-2.0); see
+`LICENSES/`.
+
 [kdeconnect]: https://userbase.kde.org/KDEConnect
-[wiki]: https://github.com/GSConnect/gnome-shell-extension-gsconnect/wiki/
-[features]: https://github.com/GSConnect/gnome-shell-extension-gsconnect/wiki/Features
-[help]: https://github.com/GSConnect/gnome-shell-extension-gsconnect/wiki/Help
-
-[gsconnect-org]: https://github.com/GSConnect
-[issues]: https://github.com/GSConnect/gnome-shell-extension-gsconnect/issues
-[help-wanted]: https://github.com/GSConnect/gnome-shell-extension-gsconnect/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22
-[needs-review]: https://github.com/GSConnect/gnome-shell-extension-gsconnect/pulls?q=is%3Apr+is%3Aopen+label%3A%22needs+review%22
-[people]: https://github.com/orgs/GSConnect/people
-[nightly-build]: https://nightly.link/GSConnect/gnome-shell-extension-gsconnect/workflows/main/main/gsconnect@andyholmes.github.io.zip
-[nightly-install]: https://github.com/GSConnect/gnome-shell-extension-gsconnect/wiki/Installation#install-from-nightly-build
