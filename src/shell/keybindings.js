@@ -63,7 +63,11 @@ export class Manager {
                 throw new Error(`Failed to add keybinding: '${accelerator}'`);
 
             const name = Meta.external_binding_name_for_action(action);
-            Main.wm.allowKeybinding(name, Shell.ActionMode.ALL);
+            // Device shortcuts act on the session, so never from the lock
+            // screen, the unlock dialog or a system modal
+            Main.wm.allowKeybinding(name,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW |
+                Shell.ActionMode.POPUP);
             this._keybindings.set(action, {name: name, callback: callback});
 
             return action;
