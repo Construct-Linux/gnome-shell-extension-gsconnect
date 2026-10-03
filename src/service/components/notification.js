@@ -3,19 +3,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Gio from 'gi://Gio';
+import GioUnix from 'gi://GioUnix?version=2.0';
 import GLib from 'gi://GLib';
 import GjsPrivate from 'gi://GjsPrivate';
 import GObject from 'gi://GObject';
 
 import * as DBus from '../utils/dbus.js';
-
-// DesktopAppInfo is no longer in Gio in GNOME 49
-let GioUnix;
-try {
-    GioUnix = (await import('gi://GioUnix?version=2.0')).default;
-} catch {
-    GioUnix = Gio;
-}
 
 
 const _nodeInfo = Gio.DBusNodeInfo.new_for_xml(`

@@ -3,23 +3,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Gio from 'gi://Gio';
+import GioUnix from 'gi://GioUnix?version=2.0';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 
 import Config from '../../config.js';
 import * as Core from '../core.js';
 import Device from '../device.js';
-
-// Retain compatibility with GLib < 2.80, which lacks GioUnix
-let GioUnix;
-try {
-    GioUnix = (await import('gi://GioUnix')).default;
-} catch {
-    GioUnix = {
-        InputStream: Gio.UnixInputStream,
-        OutputStream: Gio.UnixOutputStream,
-    };
-}
 
 /**
  * TCP Port Constants
