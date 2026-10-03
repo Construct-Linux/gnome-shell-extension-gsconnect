@@ -21,7 +21,6 @@ import * as Clipboard from './shell/clipboard.js';
 import * as Device from './shell/device.js';
 import * as Keybindings from './shell/keybindings.js';
 import * as Notification from './shell/notification.js';
-import * as Input from './shell/input.js';
 import * as Remote from './utils/remote.js';
 import * as Setup from './utils/setup.js';
 
@@ -303,8 +302,7 @@ const ServiceToggle = GObject.registerClass({
             for (const device of this.service.devices)
                 this._onDeviceRemoved(this.service, device, false);
 
-            if (!this.settings.get_boolean('keep-alive-when-locked'))
-                this.service.stop();
+            this.service.stop();
             this.service.destroy();
         }
 
@@ -353,8 +351,6 @@ class ServiceIndicator extends QuickSettings.SystemIndicator {
 let serviceIndicator = null;
 
 export default class GSConnectExtension extends Extension {
-    lockscreenInput = null;
-
     constructor(metadata) {
         super(metadata);
         Setup.setup(this.path);
@@ -389,19 +385,11 @@ export default class GSConnectExtension extends Extension {
     enable() {
         serviceIndicator = new ServiceIndicator();
         Notification.patchGtkNotificationSources();
-
-        this.lockscreenInput = new Input.LockscreenRemoteAccess();
-        this.lockscreenInput.patchInhibitor();
     }
 
     disable() {
         serviceIndicator.destroy();
         serviceIndicator = null;
         Notification.unpatchGtkNotificationSources();
-
-        if (this.lockscreenInput) {
-            this.lockscreenInput.unpatchInhibitor();
-            this.lockscreenInput = null;
-        }
     }
 }
