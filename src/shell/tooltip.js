@@ -10,7 +10,7 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {HAS_CLUTTER_CONTROLLERS, HAS_ST_ORIENTATION} from './utils.js';
+import {HAS_ST_ORIENTATION} from './utils.js';
 
 /**
  * An StTooltip for ClutterActors
@@ -40,16 +40,15 @@ export default class Tooltip {
             this._onHover.bind(this)
         );
 
-        if (HAS_CLUTTER_CONTROLLERS) {
-            const clickGesture = new Clutter.ClickGesture();
-            clickGesture.set_recognize_on_press(true);
-            clickGesture.connect('recognize', this._hide.bind(this));
-            this.parent.add_action(clickGesture);
-        } else {
-            this._buttonPressEventId = this.parent.connect(
-                'button-press-event',
-                this._hide.bind(this)
-            );
+        // A second click gesture on an St.Button would compete with the
+        // button's own and can cancel it before 'clicked' is emitted, so
+        // follow the button's pressed state instead.
+        this._pressedId = 0;
+        if (this.parent instanceof St.Button) {
+            this._pressedId = this.parent.connect('notify::pressed', () => {
+                if (this.parent.pressed)
+                    this._hide();
+            });
         }
     }
 
@@ -300,8 +299,8 @@ export default class Tooltip {
     destroy() {
         this.parent.disconnect(this._destroyId);
         this.parent.disconnect(this._hoverId);
-        if (!HAS_CLUTTER_CONTROLLERS)
-            this.parent.disconnect(this._buttonPressEventId);
+        if (this._pressedId)
+            this.parent.disconnect(this._pressedId);
 
         if (this.custom)
             this.custom.destroy();
