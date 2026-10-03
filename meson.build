@@ -47,7 +47,6 @@ extconfig.set('APPLICATION_ID', app_id)
 extconfig.set('APPLICATION_PATH', app_path)
 
 extconfig.set('GNOME_SHELL_LIBDIR', gnome_shell_libdir)
-extconfig.set('FFMPEG_PATH', get_option('ffmpeg_path'))
 extconfig.set('OPENSSL_PATH', get_option('openssl_path'))
 extconfig.set('SSHADD_PATH', get_option('sshadd_path'))
 extconfig.set('SSHKEYGEN_PATH', get_option('sshkeygen_path'))

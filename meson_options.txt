@@ -31,13 +31,6 @@ option(
 # External program paths
 # NOTE: these are only useful for distributions like NixOS that don't use PATH
 option(
-  'ffmpeg_path',
-  type: 'string',
-  value: 'ffmpeg',
-  description: 'Absolute path to ffmpeg binary'
-)
-
-option(
   'openssl_path',
   type: 'string',
   value: 'openssl',
