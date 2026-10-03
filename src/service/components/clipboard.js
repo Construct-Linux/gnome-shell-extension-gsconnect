@@ -12,7 +12,11 @@ const DBUS_PATH = '/org/gnome/Shell/Extensions/GSConnect/Clipboard';
 
 
 /**
- * The service class for this component
+ * The service class for this component.
+ *
+ * Writing `text` always reaches the session clipboard. Reading follows the
+ * session clipboard only while someone holds a watch(), since every copy in
+ * the session would otherwise cost two D-Bus round trips through the shell.
  */
 const Clipboard = GObject.registerClass({
     GTypeName: 'GSConnectClipboard',
@@ -31,9 +35,10 @@ const Clipboard = GObject.registerClass({
         super._init();
 
         this._cancellable = new Gio.Cancellable();
-        this._clipboard = null;
-
+        this._available = false;
+        this._watchers = 0;
         this._ownerChangeId = 0;
+
         this._nameWatcherId = Gio.bus_watch_name(
             Gio.BusType.SESSION,
             DBUS_NAME,
@@ -51,65 +56,96 @@ const Clipboard = GObject.registerClass({
     }
 
     set text(content) {
-        if (this.text === content)
-            return;
-
-        this._text = content;
-        this.notify('text');
-
         if (typeof content !== 'string')
             return;
 
-        if (this._clipboard !== null) {
-            this._clipboard.call('SetText', new GLib.Variant('(s)', [content]),
-                Gio.DBusCallFlags.NO_AUTO_START, -1, this._cancellable)
-                .catch(debug);
+        if (this.text !== content) {
+            this._text = content;
+            this.notify('text');
+        }
+
+        // The cached text is stale while nobody watches, so always write
+        this._call('SetText', new GLib.Variant('(s)', [content]))
+            .catch(e => debug(e));
+    }
+
+    /**
+     * Start following the session clipboard. Every call must be paired with
+     * a call to unwatch().
+     */
+    watch() {
+        this._watchers++;
+
+        if (this._watchers === 1)
+            this._subscribe();
+    }
+
+    /**
+     * Stop following the session clipboard.
+     */
+    unwatch() {
+        this._watchers--;
+
+        if (this._watchers === 0)
+            this._unsubscribe();
+    }
+
+    /**
+     * Read the session clipboard once and update `text`.
+     */
+    async refresh() {
+        try {
+            if (this._available)
+                await this._updateText();
+        } catch (e) {
+            if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                debug(e);
         }
     }
 
-    async _onNameAppeared(connection, name, name_owner) {
-        try {
-            // Create a proxy for the remote clipboard
-            this._clipboard = new Gio.DBusProxy({
-                g_bus_type: Gio.BusType.SESSION,
-                g_name: DBUS_NAME,
-                g_object_path: DBUS_PATH,
-                g_interface_name: DBUS_NAME,
-                g_flags: Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES,
-            });
+    _call(method, parameters = null) {
+        if (!this._available)
+            return Promise.reject(new Error('Clipboard portal not available'));
 
-            await this._clipboard.init_async(GLib.PRIORITY_DEFAULT,
-                this._cancellable);
+        return Gio.DBus.session.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, method,
+            parameters, null, Gio.DBusCallFlags.NO_AUTO_START, -1,
+            this._cancellable);
+    }
 
-            this._ownerChangeId = this._clipboard.connect('g-signal',
-                this._onOwnerChange.bind(this));
+    _subscribe() {
+        if (!this._available || this._ownerChangeId > 0)
+            return;
 
-            this._onOwnerChange();
-        } catch (e) {
-            if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-                debug(e);
-                this._onNameVanished(null, null);
-            }
+        this._ownerChangeId = Gio.DBus.session.signal_subscribe(
+            DBUS_NAME,
+            DBUS_NAME,
+            'OwnerChange',
+            DBUS_PATH,
+            null,
+            Gio.DBusSignalFlags.NONE,
+            () => this.refresh()
+        );
+
+        this.refresh();
+    }
+
+    _unsubscribe() {
+        if (this._ownerChangeId > 0) {
+            Gio.DBus.session.signal_unsubscribe(this._ownerChangeId);
+            this._ownerChangeId = 0;
         }
+    }
+
+    _onNameAppeared(connection, name, name_owner) {
+        this._available = true;
+
+        if (this._watchers > 0)
+            this._subscribe();
     }
 
     _onNameVanished(connection, name) {
-        if (this._clipboard && this._ownerChangeId > 0) {
-            this._clipboard.disconnect(this._ownerChangeId);
-            this._ownerChangeId = 0;
-        }
-
-        this._clipboard = null;
-    }
-
-    async _onOwnerChange() {
-        try {
-            if (this._clipboard !== null)
-                await this._proxyUpdateText();
-        } catch (e) {
-            if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                debug(e);
-        }
+        this._unsubscribe();
+        this._available = false;
     }
 
     _applyUpdate(text) {
@@ -120,12 +156,8 @@ const Clipboard = GObject.registerClass({
         this.notify('text');
     }
 
-    /*
-     * Proxy Clipboard
-     */
-    async _proxyUpdateText() {
-        let reply = await this._clipboard.call('GetMimetypes', null,
-            Gio.DBusCallFlags.NO_AUTO_START, -1, this._cancellable);
+    async _updateText() {
+        let reply = await this._call('GetMimetypes');
         const mimetypes = reply.deepUnpack()[0];
 
         // Special case for a cleared clipboard
@@ -136,8 +168,7 @@ const Clipboard = GObject.registerClass({
         if (mimetypes.includes('text/uri-list'))
             return;
 
-        reply = await this._clipboard.call('GetText', null,
-            Gio.DBusCallFlags.NO_AUTO_START, -1, this._cancellable);
+        reply = await this._call('GetText');
         const text = reply.deepUnpack()[0];
 
         this._applyUpdate(text);
@@ -148,11 +179,7 @@ const Clipboard = GObject.registerClass({
             return;
 
         this._cancellable.cancel();
-
-        if (this._clipboard && this._ownerChangeId > 0) {
-            this._clipboard.disconnect(this._ownerChangeId);
-            this._ownerChangedId = 0;
-        }
+        this._unsubscribe();
 
         if (this._nameWatcherId > 0) {
             Gio.bus_unwatch_name(this._nameWatcherId);
@@ -162,5 +189,3 @@ const Clipboard = GObject.registerClass({
 });
 
 export default Clipboard;
-
-// vim:tabstop=2:shiftwidth=2:expandtab

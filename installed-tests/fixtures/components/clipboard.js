@@ -32,6 +32,15 @@ const Component = GObject.registerClass({
         this._text = content;
         this.notify('text');
     }
+
+    watch() {
+    }
+
+    unwatch() {
+    }
+
+    async refresh() {
+    }
 });
 
 export default Component;

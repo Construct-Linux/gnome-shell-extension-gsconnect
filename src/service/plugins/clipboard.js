@@ -60,6 +60,14 @@ const ClipboardPlugin = GObject.registerClass({
             this._onLocalClipboardChanged.bind(this)
         );
 
+        // Only follow the session clipboard while its content is sent
+        this._watching = false;
+        this._sendContentChangedId = this.settings.connect(
+            'changed::send-content',
+            this._onSendContentChanged.bind(this)
+        );
+        this._onSendContentChanged();
+
         // Buffer content to allow selective sync
         this._localBuffer = this._clipboard.text;
         this._localTimestamp = 0;
@@ -85,6 +93,20 @@ const ClipboardPlugin = GObject.registerClass({
                 timestamp: this._localTimestamp,
             },
         });
+    }
+
+    _onSendContentChanged() {
+        const sendContent = this.settings.get_boolean('send-content');
+
+        if (sendContent === this._watching)
+            return;
+
+        this._watching = sendContent;
+
+        if (sendContent)
+            this._clipboard.watch();
+        else
+            this._clipboard.unwatch();
     }
 
     handlePacket(packet) {
@@ -136,7 +158,11 @@ const ClipboardPlugin = GObject.registerClass({
     /**
      * Copy to the remote clipboard; called by _onLocalClipboardChanged()
      */
-    clipboardPush() {
+    async clipboardPush() {
+        // Not following the clipboard, so read it now
+        if (!this._watching)
+            await this._clipboard.refresh();
+
         // Don't sync if the clipboard is empty or not text
         if (this._localTimestamp === 0)
             return;
@@ -170,7 +196,12 @@ const ClipboardPlugin = GObject.registerClass({
     }
 
     destroy() {
+        this.settings.disconnect(this._sendContentChangedId);
+
         if (this._clipboard && this._textChangedId) {
+            if (this._watching)
+                this._clipboard.unwatch();
+
             this._clipboard.disconnect(this._textChangedId);
             this._clipboard = Components.release('clipboard');
         }

@@ -724,6 +724,9 @@ const NotificationPlugin = GObject.registerClass({
         if (this._session !== undefined)
             this._session = Components.release('session');
 
+        if (this._clipboard !== undefined)
+            this._clipboard = Components.release('clipboard');
+
         super.destroy();
     }
 
