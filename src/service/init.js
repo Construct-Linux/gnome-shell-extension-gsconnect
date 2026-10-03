@@ -359,8 +359,8 @@ Object.defineProperties(Gio.TlsCertificate.prototype, {
      */
     'common_name': {
         get: function () {
-            // The TLS backend parses the subject already; spawning openssl
-            // here blocked the main loop once for every peer certificate
+            // subject-name is parsed by the TLS backend, so reading it needs
+            // no subprocess on the main loop for each peer certificate
             if (!this.__common_name)
                 this.__common_name = /(?:^|,)\s*CN\s*=\s*([^,]*)/i.exec(this.subject_name)[1];
 
