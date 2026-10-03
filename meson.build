@@ -70,6 +70,5 @@ install_subdir(
 
 subdir('data')
 subdir('installed-tests')
-subdir('nautilus-extension')
 subdir('po')
 

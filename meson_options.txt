@@ -43,21 +43,6 @@ option(
   description: 'Absolute path to ssh-keygen binary'
 )
 
-# Nautilus/Nemo Python extension installation
-option(
-  'nautilus',
-  type: 'boolean',
-  value: true,
-  description: 'Install file browser extension for Nautilus (Files)'
-)
-
-option(
-  'nemo',
-  type: 'boolean',
-  value: false,
-  description: 'Install file browser extension for Nemo'
-)
-
 option(
   'installed_tests',
   type: 'boolean',
