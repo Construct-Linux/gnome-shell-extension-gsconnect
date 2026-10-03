@@ -136,10 +136,26 @@ export class ListBox extends PopupMenu.PopupMenuSection {
             );
         }
 
-        // Refresh the menu when mapped
+        // Reset the submenu state when unmapped
         this._mappedId = this.actor.connect(
             'notify::mapped',
             this._onMapped.bind(this)
+        );
+
+        // Menu items by action name, to follow the enabled state
+        this._actionItems = new Map();
+
+        this._actionAddedId = this.action_group.connect(
+            'action-added',
+            this._onActionChanged.bind(this)
+        );
+        this._actionEnabledChangedId = this.action_group.connect(
+            'action-enabled-changed',
+            this._onActionChanged.bind(this)
+        );
+        this._actionRemovedId = this.action_group.connect(
+            'action-removed',
+            this._onActionChanged.bind(this)
         );
 
         // Watch the model for changes
@@ -150,12 +166,21 @@ export class ListBox extends PopupMenu.PopupMenuSection {
         this._onItemsChanged();
     }
 
-    _onMapped(actor) {
-        if (actor.mapped) {
-            this._onItemsChanged();
+    _onActionChanged(group, name) {
+        const items = this._actionItems.get(name);
 
+        if (items === undefined)
+            return;
+
+        const enabled = group.get_action_enabled(name);
+
+        for (const item of items)
+            item.actor.visible = enabled;
+    }
+
+    _onMapped(actor) {
         // We use this instead of close() to avoid touching finalized objects
-        } else {
+        if (!actor.mapped) {
             this.box.set_opacity(255);
             this.box.set_width(-1);
             this.box.set_height(-1);
@@ -221,6 +246,10 @@ export class ListBox extends PopupMenu.PopupMenuSection {
             item.actor.visible = this.action_group.get_action_enabled(
                 item.action_name
             );
+
+            const items = this._actionItems.get(item.action_name) ?? [];
+            items.push(item);
+            this._actionItems.set(item.action_name, items);
         }
 
         item.connectObject(
@@ -280,7 +309,8 @@ export class ListBox extends PopupMenu.PopupMenuSection {
     _onItemsChanged(model, position, removed, added) {
         // Clear the menu
         this.removeAll();
-        this.sub.get_children().map(child => child.destroy());
+        this._destroySubmenus();
+        this._actionItems.clear();
 
         for (let i = 0, len = this.model.get_n_items(); i < len; i++) {
             const info = getItemInfo(this.model, i);
@@ -321,6 +351,13 @@ export class ListBox extends PopupMenu.PopupMenuSection {
                 this._parent.submenu = null;
             }, this);
         }
+    }
+
+    // Submenus live in this.sub rather than among the menu items, so
+    // removeAll() does not reach them and their handlers must be released
+    _destroySubmenus() {
+        for (const child of this.sub.get_children())
+            child._delegate.destroy();
     }
 
     _onTransitionsCompleted(actor) {
@@ -398,6 +435,10 @@ export class ListBox extends PopupMenu.PopupMenuSection {
         if (!HAS_CLUTTER_CONTROLLERS)
             this.actor.disconnect(this._submenuCloseKeyId);
         this.model.disconnect(this._itemsChangedId);
+        this.action_group.disconnect(this._actionAddedId);
+        this.action_group.disconnect(this._actionEnabledChangedId);
+        this.action_group.disconnect(this._actionRemovedId);
+        this._destroySubmenus();
 
         super.destroy();
     }
