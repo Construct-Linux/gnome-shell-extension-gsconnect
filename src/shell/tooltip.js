@@ -10,8 +10,6 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {HAS_ST_ORIENTATION} from './utils.js';
-
 /**
  * An StTooltip for ClutterActors
  *
@@ -158,15 +156,9 @@ export default class Tooltip {
             if (this.custom) {
                 this._bin.child = this.custom;
             } else {
-                if (HAS_ST_ORIENTATION) {
-                    // GNOME 48
-                    this._bin.child = new St.BoxLayout(
-                        {orientation: Clutter.Orientation.HORIZONTAL}
-                    );
-                } else {
-                    // GNOME 46/47
-                    this._bin.child = new St.BoxLayout({vertical: false});
-                }
+                this._bin.child = new St.BoxLayout(
+                    {orientation: Clutter.Orientation.HORIZONTAL}
+                );
 
                 if (this.gicon) {
                     this._bin.child.icon = new St.Icon({

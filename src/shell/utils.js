@@ -4,14 +4,6 @@
 
 import Gio from 'gi://Gio';
 
-import {PACKAGE_VERSION} from 'resource:///org/gnome/shell/misc/config.js';
-
-
-export const SHELL_MAJOR_VERSION = Number(PACKAGE_VERSION.split('.')[0]);
-
-export const HAS_ST_ORIENTATION = SHELL_MAJOR_VERSION >= 48;
-export const HAS_MESSAGELIST_NOTIFICATIONMESSAGE = SHELL_MAJOR_VERSION >= 48;
-export const HAS_CLUTTER_CONTROLLERS = SHELL_MAJOR_VERSION >= 51;
 
 const ICON_PATH = 'resource://org/gnome/Shell/Extensions/GSConnect/icons';
 

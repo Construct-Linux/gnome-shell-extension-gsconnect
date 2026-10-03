@@ -10,7 +10,7 @@ import St from 'gi://St';
 
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import {HAS_CLUTTER_CONTROLLERS, HAS_ST_ORIENTATION, getFallbackIcon} from './utils.js';
+import {getFallbackIcon} from './utils.js';
 
 import Tooltip from './tooltip.js';
 
@@ -88,19 +88,12 @@ export class ListBox extends PopupMenu.PopupMenuSection {
         this.actor.add_child(this.box);
 
         // Submenu Container
-        this.sub = HAS_ST_ORIENTATION
-            ? new St.BoxLayout({
-                clip_to_allocation: true,
-                orientation: Clutter.Orientation.HORIZONTAL,  // GNOME 48
-                visible: false,
-                x_expand: true,
-            })
-            : new St.BoxLayout({
-                clip_to_allocation: true,
-                vertical: false,  // GNOME 46/47
-                visible: false,
-                x_expand: true,
-            });
+        this.sub = new St.BoxLayout({
+            clip_to_allocation: true,
+            orientation: Clutter.Orientation.HORIZONTAL,
+            visible: false,
+            x_expand: true,
+        });
         this.sub.set_pivot_point(1, 1);
         this.sub._delegate = this;
         this.actor.add_child(this.sub);
@@ -117,19 +110,12 @@ export class ListBox extends PopupMenu.PopupMenuSection {
         );
 
         // Handle keyboard navigation
-        if (HAS_CLUTTER_CONTROLLERS) {
-            const keyController = new Clutter.KeyController();
-            keyController.connect(
-                'key-press',
-                () => this._onSubmenuCloseKey(this.actor, keyController.get_key()[1])
-            );
-            this.actor.add_action(keyController);
-        } else {
-            this._submenuCloseKeyId = this.actor.connect(
-                'key-press-event',
-                (actor, event) => this._onSubmenuCloseKey(actor, event.get_key_symbol())
-            );
-        }
+        const keyController = new Clutter.KeyController();
+        keyController.connect(
+            'key-press',
+            () => this._onSubmenuCloseKey(this.actor, keyController.get_key()[1])
+        );
+        this.actor.add_action(keyController);
 
         // Reset the submenu state when unmapped
         this._mappedId = this.actor.connect(
@@ -274,19 +260,12 @@ export class ListBox extends PopupMenu.PopupMenuSection {
         // Mark it as an expandable and open on right-arrow
         item.actor.add_accessible_state(Atk.StateType.EXPANDABLE);
 
-        if (HAS_CLUTTER_CONTROLLERS) {
-            const keyController = new Clutter.KeyController();
-            keyController.connect(
-                'key-press',
-                () => this._onSubmenuOpenKey(item.actor, keyController.get_key()[1])
-            );
-            item.actor.add_action(keyController);
-        } else {
-            item.actor.connect(
-                'key-press-event',
-                (actor, event) => this._onSubmenuOpenKey(actor, event.get_key_symbol())
-            );
-        }
+        const keyController = new Clutter.KeyController();
+        keyController.connect(
+            'key-press',
+            () => this._onSubmenuOpenKey(item.actor, keyController.get_key()[1])
+        );
+        item.actor.add_action(keyController);
 
         // Create the submenu
         item.submenu = new ListBox({
@@ -427,8 +406,6 @@ export class ListBox extends PopupMenu.PopupMenuSection {
         this.actor.disconnect(this._mappedId);
         this.box.disconnect(this._boxTransitionsCompletedId);
         this.sub.disconnect(this._subTransitionsCompletedId);
-        if (!HAS_CLUTTER_CONTROLLERS)
-            this.actor.disconnect(this._submenuCloseKeyId);
         this.model.disconnect(this._itemsChangedId);
         this.action_group.disconnect(this._actionAddedId);
         this.action_group.disconnect(this._actionEnabledChangedId);
@@ -536,38 +513,24 @@ export class IconBox extends PopupMenu.PopupMenuSection {
         Object.assign(this, params);
 
         // Main Actor
-        this.actor = HAS_ST_ORIENTATION
-            ? new St.BoxLayout({
-                orientation: Clutter.Orientation.VERTICAL,  // GNOME 48
-                x_expand: true,
-            })
-            : new St.BoxLayout({
-                vertical: true,  // GNOME 46/47
-                x_expand: true,
-            });
+        this.actor = new St.BoxLayout({
+            orientation: Clutter.Orientation.VERTICAL,
+            x_expand: true,
+        });
         this.actor._delegate = this;
 
         // Button Box
         this.box._delegate = this;
         this.box.style_class = 'gsconnect-icon-box';
-        if (HAS_ST_ORIENTATION)
-            this.box.orientation = Clutter.Orientation.HORIZONTAL;  // GNOME 48
-        else
-            this.box.vertical = false;  // GNOME 46/47
+        this.box.orientation = Clutter.Orientation.HORIZONTAL;
         this.actor.add_child(this.box);
 
         // Submenu Container
-        this.sub = HAS_ST_ORIENTATION
-            ? new St.BoxLayout({
-                clip_to_allocation: true,
-                orientation: Clutter.Orientation.VERTICAL,  // GNOME 48
-                x_expand: true,
-            })
-            : new St.BoxLayout({
-                clip_to_allocation: true,
-                vertical: true,  // GNOME 46/47
-                x_expand: true,
-            });
+        this.sub = new St.BoxLayout({
+            clip_to_allocation: true,
+            orientation: Clutter.Orientation.VERTICAL,
+            x_expand: true,
+        });
         this.sub.connect('transitions-completed', this._onTransitionsCompleted);
         this.sub._delegate = this;
         this.actor.add_child(this.sub);
