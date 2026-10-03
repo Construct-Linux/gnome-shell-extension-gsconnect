@@ -16,7 +16,7 @@ import Config from '../../config.js';
  * Issue Header
  */
 const ISSUE_HEADER = `
-GSConnect: ${Config.PACKAGE_VERSION} (${Config.IS_USER ? 'user' : 'system'})
+GSConnect: ${Config.PACKAGE_VERSION}
 GJS:       ${system.version}
 Session:   ${GLib.getenv('XDG_SESSION_TYPE')}
 OS:        ${GLib.get_os_info('PRETTY_NAME')}

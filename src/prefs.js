@@ -14,8 +14,6 @@ export default class GSConnectExtensionPreferences extends ExtensionPreferences 
     constructor(metadata) {
         super(metadata);
         Setup.setup(this.path);
-        Setup.ensurePermissions();
-        Setup.installService();
     }
 
     fillPreferencesWindow(window) {

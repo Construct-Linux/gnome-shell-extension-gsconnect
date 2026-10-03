@@ -20,7 +20,7 @@ import {Service} from '../utils/remote.js';
  * Header for support logs
  */
 const LOG_HEADER = new GLib.Bytes(`
-GSConnect: ${Config.PACKAGE_VERSION} (${Config.IS_USER ? 'user' : 'system'})
+GSConnect: ${Config.PACKAGE_VERSION}
 GJS:       ${system.version}
 Session:   ${GLib.getenv('XDG_SESSION_TYPE')}
 OS:        ${GLib.get_os_info('PRETTY_NAME')}

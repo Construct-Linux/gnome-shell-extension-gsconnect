@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Gio from 'gi://Gio';
-import GIRepository from 'gi://GIRepository';
 import GLib from 'gi://GLib';
 
 import Config from '../config.js';
@@ -61,35 +60,6 @@ const serviceFolder = GLib.path_get_dirname(GLib.filename_from_uri(import.meta.u
 const extensionFolder = GLib.path_get_dirname(serviceFolder);
 setup(extensionFolder);
 setupGettext();
-
-
-if (Config.IS_USER) {
-    // Infer libdir by assuming gnome-shell shares a common prefix with gjs;
-    // assume the parent directory if it's not there
-    let gir_paths;
-
-    if (GIRepository.Repository.hasOwnProperty('get_search_path')) {
-        // GNOME <= 48 / GIRepository 2.0
-        gir_paths = GIRepository.Repository.get_search_path();
-    } else {
-        // GNOME 49+ / GIRepository 3.0
-        const repo = GIRepository.Repository.dup_default();
-        gir_paths = repo.get_search_path();
-    }
-
-    let libdir = gir_paths.find(path => {
-        return path.endsWith('/gjs/girepository-1.0');
-    }).replace('/gjs/girepository-1.0', '');
-
-    const gsdir = GLib.build_filenamev([libdir, 'gnome-shell']);
-
-    if (!GLib.file_test(gsdir, GLib.FileTest.IS_DIR)) {
-        const currentDir = `/${GLib.path_get_basename(libdir)}`;
-        libdir = libdir.replace(currentDir, '');
-    }
-
-    Config.GNOME_SHELL_LIBDIR = libdir;
-}
 
 
 // Load DBus interfaces

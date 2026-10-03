@@ -355,21 +355,6 @@ export default class GSConnectExtension extends Extension {
         super(metadata);
         Setup.setup(this.path);
 
-        // If installed as a user extension, this checks the permissions
-        // on certain critical files in the extension directory
-        // to ensure that they have the executable bit set,
-        // and makes them executable if not. Some packaging methods
-        // (particularly GitHub Actions artifacts) automatically remove
-        // executable bits from all contents, presumably for security.
-        Setup.ensurePermissions();
-
-        // If installed as a user extension, this will install the
-        // Desktop entry, DBus and systemd service files necessary
-        // for DBus activation and GNotifications. Since there's no
-        // uninit()/uninstall() hook for extensions and they're only used
-        // *by* GSConnect, they should be okay to leave.
-        Setup.installService();
-
         // These modify the notification source for GSConnect's GNotifications
         // and need to be active even when the extension is disabled
         // (eg. lock screen). Since they *only* affect notifications

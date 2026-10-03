@@ -98,10 +98,5 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: extdatadir,
-  dependencies: [
-    desktop_file,
-    desktop_prefs_file,
-    dbus_service_file
-  ]
 )
 
