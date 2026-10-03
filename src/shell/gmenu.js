@@ -10,7 +10,7 @@ import St from 'gi://St';
 
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import {HAS_CLUTTER_CONTROLLERS, HAS_ST_ORIENTATION, getIcon} from './utils.js';
+import {HAS_CLUTTER_CONTROLLERS, HAS_ST_ORIENTATION, getFallbackIcon} from './utils.js';
 
 import Tooltip from './tooltip.js';
 
@@ -37,12 +37,7 @@ function getItemInfo(model, index) {
 
         switch (name) {
             case 'icon':
-                value = Gio.Icon.deserialize(value);
-
-                if (value instanceof Gio.ThemedIcon)
-                    value = getIcon(value.names[0]);
-
-                info[name] = value;
+                info[name] = Gio.Icon.deserialize(value);
                 break;
 
             case 'target':
@@ -476,7 +471,10 @@ export const IconButton = GObject.registerClass({
         }
 
         if (params.info.hasOwnProperty('icon'))
-            this.child = new St.Icon({gicon: params.info.icon});
+            this.child = new St.Icon({
+                gicon: params.info.icon,
+                fallback_gicon: getFallbackIcon(params.info.icon),
+            });
 
         // Submenu
         for (const link of params.info.links) {

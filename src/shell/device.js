@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 
@@ -10,7 +11,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getIcon} from './utils.js';
+import {getFallbackIcon} from './utils.js';
 
 import * as GMenu from './gmenu.js';
 import Tooltip from './tooltip.js';
@@ -363,8 +364,10 @@ export const Indicator = GObject.registerClass({
         Object.assign(this, params);
 
         // Device Icon
+        const gicon = new Gio.ThemedIcon({name: this.device.icon_name});
         this._icon = new St.Icon({
-            gicon: getIcon(this.device.icon_name),
+            gicon,
+            fallback_gicon: getFallbackIcon(gicon),
             style_class: 'system-status-icon gsconnect-device-indicator',
         });
         this.add_child(this._icon);
