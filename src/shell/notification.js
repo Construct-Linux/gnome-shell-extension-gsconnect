@@ -306,37 +306,11 @@ const Source = GObject.registerClass({
         }
 
         const createdNotification = this._createNotification(notification);
-        this._addNotificationToMessageTray(createdNotification);
+        // Skip GtkNotificationDaemonAppSource.addNotification, which would
+        // replace the cached notification by id instead of updating it.
+        MessageTray.Source.prototype.addNotification.call(this, createdNotification);
 
         this._notificationPending = false;
-    }
-
-    /*
-     * Reimplementation of MessageTray.addNotification to raise the usual
-     * notification limit (3)
-     */
-    _addNotificationToMessageTray(notification) {
-        if (this.notifications.includes(notification))
-            return;
-
-        while (this.notifications.length >= 10) {
-            const [oldest] = this.notifications;
-            oldest.destroy(MessageTray.NotificationDestroyedReason.EXPIRED);
-        }
-
-        notification.connect('destroy', this._onNotificationDestroy.bind(this));
-        notification.connect('notify::acknowledged', () => {
-            this.countUpdated();
-
-            // If acknowledged was set to false,
-            // try to show the notification again
-            if (!notification.acknowledged)
-                this.emit('notification-request-banner', notification);
-        });
-        this.notifications.push(notification);
-
-        this.emit('notification-added', notification);
-        this.emit('notification-request-banner', notification);
     }
 
     createBanner(notification) {
@@ -358,7 +332,6 @@ export function patchGSConnectNotificationSource() {
         source._parseNotificationId = Source.prototype._parseNotificationId;
         source._createNotification = Source.prototype._createNotification;
         source.addNotification = Source.prototype.addNotification;
-        source._addNotificationToMessageTray = Source.prototype._addNotificationToMessageTray;
         source.createBanner = Source.prototype.createBanner;
 
         // Connect to existing notifications
@@ -388,7 +361,6 @@ const _ensureAppSource = function (appId) {
         source._parseNotificationId = Source.prototype._parseNotificationId;
         source._createNotification = Source.prototype._createNotification;
         source.addNotification = Source.prototype.addNotification;
-        source._addNotificationToMessageTray = Source.prototype._addNotificationToMessageTray;
         source.createBanner = Source.prototype.createBanner;
     }
 
