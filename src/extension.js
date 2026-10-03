@@ -384,12 +384,10 @@ export default class GSConnectExtension extends Extension {
 
     enable() {
         serviceIndicator = new ServiceIndicator();
-        Notification.patchGtkNotificationSources();
     }
 
     disable() {
         serviceIndicator.destroy();
         serviceIndicator = null;
-        Notification.unpatchGtkNotificationSources();
     }
 }

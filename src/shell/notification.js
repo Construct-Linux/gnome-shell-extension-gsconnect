@@ -5,18 +5,11 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
-import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import * as NotificationDaemon from 'resource:///org/gnome/shell/ui/notificationDaemon.js';
 
-import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {HAS_MESSAGELIST_NOTIFICATIONMESSAGE, getIcon} from './utils.js';
-
-const {NotificationMessage} = HAS_MESSAGELIST_NOTIFICATIONMESSAGE
-    ? await import('resource:///org/gnome/shell/ui/messageList.js')  // GNOME 48+
-    : await import('resource:///org/gnome/shell/ui/calendar.js');    // GNOME 46/47
 
 const APP_ID = 'org.gnome.Shell.Extensions.GSConnect';
 const APP_PATH = '/org/gnome/Shell/Extensions/GSConnect';
@@ -43,124 +36,6 @@ function getPlatformData() {
 
 // This is no longer directly exported, so we do this instead for now
 const GtkNotificationDaemon = Main.notificationDaemon._gtkNotificationDaemon.constructor;
-
-
-/**
- * A slightly modified Notification Banner with an entry field
- */
-const NotificationBanner = GObject.registerClass({
-    GTypeName: 'GSConnectNotificationBanner',
-}, class NotificationBanner extends NotificationMessage {
-
-    constructor(notification) {
-        super(notification);
-        if (notification.requestReplyId !== undefined)
-            this._addReplyAction();
-    }
-
-    _addReplyAction() {
-        if (!this._buttonBox) {
-            this._buttonBox = new St.BoxLayout({
-                style_class: 'notification-buttons-bin',
-                x_expand: true,
-            });
-            this.setActionArea(this._buttonBox);
-            global.focus_manager.add_group(this._buttonBox);
-        }
-
-        // Reply Button
-        const button = new St.Button({
-            style_class: 'notification-button',
-            label: _('Reply'),
-            x_expand: true,
-            can_focus: true,
-        });
-
-        button.connect(
-            'clicked',
-            this._onEntryRequested.bind(this)
-        );
-
-        this._buttonBox.add_child(button);
-
-        // Reply Entry
-        this._replyEntry = new St.Entry({
-            can_focus: true,
-            hint_text: _('Type a message'),
-            style_class: 'chat-response',
-            x_expand: true,
-            visible: false,
-        });
-
-        this._buttonBox.add_child(this._replyEntry);
-    }
-
-    _onEntryRequested(button) {
-        this.focused = true;
-
-        for (const child of this._buttonBox.get_children())
-            child.visible = (child === this._replyEntry);
-
-        // Release the notification focus with the entry focus
-        this._replyEntry.connect(
-            'key-focus-out',
-            this._onEntryDismissed.bind(this)
-        );
-
-        this._replyEntry.clutter_text.connect(
-            'activate',
-            this._onEntryActivated.bind(this)
-        );
-
-        this._replyEntry.grab_key_focus();
-    }
-
-    _onEntryDismissed(entry) {
-        this.focused = false;
-        this.emit('unfocused');
-    }
-
-    _onEntryActivated(clutter_text) {
-        // Refuse to send empty replies
-        if (clutter_text.text === '')
-            return;
-
-        // Copy the text, then clear the entry
-        const text = clutter_text.text;
-        clutter_text.text = '';
-
-        const {deviceId, requestReplyId} = this.notification;
-
-        const target = new GLib.Variant('(ssbv)', [
-            deviceId,
-            'replyNotification',
-            true,
-            new GLib.Variant('(ssa{ss})', [requestReplyId, text, {}]),
-        ]);
-        const platformData = getPlatformData();
-
-        Gio.DBus.session.call(
-            APP_ID,
-            APP_PATH,
-            'org.freedesktop.Application',
-            'ActivateAction',
-            GLib.Variant.new('(sava{sv})', ['device', [target], platformData]),
-            null,
-            Gio.DBusCallFlags.NO_AUTO_START,
-            -1,
-            null,
-            (connection, res) => {
-                try {
-                    connection.call_finish(res);
-                } catch {
-                    // Silence errors
-                }
-            }
-        );
-
-        this.close();
-    }
-});
 
 
 /**
@@ -295,26 +170,12 @@ const Source = GObject.registerClass({
     addNotification(notification) {
         this._notificationPending = true;
 
-        // Fix themed icons
-        if (notification.icon) {
-            let gicon = notification.icon;
-
-            if (gicon instanceof Gio.ThemedIcon) {
-                gicon = getIcon(gicon.names[0]);
-                notification.icon = gicon.serialize();
-            }
-        }
-
         const createdNotification = this._createNotification(notification);
         // Skip GtkNotificationDaemonAppSource.addNotification, which would
         // replace the cached notification by id instead of updating it.
         MessageTray.Source.prototype.addNotification.call(this, createdNotification);
 
         this._notificationPending = false;
-    }
-
-    createBanner(notification) {
-        return new NotificationBanner(notification);
     }
 });
 
@@ -332,7 +193,6 @@ export function patchGSConnectNotificationSource() {
         source._parseNotificationId = Source.prototype._parseNotificationId;
         source._createNotification = Source.prototype._createNotification;
         source.addNotification = Source.prototype.addNotification;
-        source.createBanner = Source.prototype.createBanner;
 
         // Connect to existing notifications
         for (const notification of Object.values(source._notifications)) {
@@ -361,7 +221,6 @@ const _ensureAppSource = function (appId) {
         source._parseNotificationId = Source.prototype._parseNotificationId;
         source._createNotification = Source.prototype._createNotification;
         source.addNotification = Source.prototype.addNotification;
-        source.createBanner = Source.prototype.createBanner;
     }
 
     return source;
@@ -373,82 +232,4 @@ const _ensureAppSource = function (appId) {
  */
 export function patchGtkNotificationDaemon() {
     GtkNotificationDaemon.prototype._ensureAppSource = _ensureAppSource;
-}
-
-
-/**
- * Restore the prototype for {@link GtkNotificationDaemon}.
- */
-export function unpatchGtkNotificationDaemon() {
-    GtkNotificationDaemon.prototype._ensureAppSource = __ensureAppSource;
-}
-
-/**
- * We patch other Gtk notification sources so we can notify remote devices when
- * notifications have been closed locally.
- */
-const _addNotification = NotificationDaemon.GtkNotificationDaemonAppSource
-    .prototype.addNotification;
-
-/**
- * Update the prototype for
- * {@link NotificationDaemon.GtkNotificationDaemonAppSource}.
- */
-export function patchGtkNotificationSources() {
-    // eslint-disable-next-line func-style
-    const _withdrawGSConnectNotification = function (id, notification, reason) {
-        if (reason !== MessageTray.NotificationDestroyedReason.DISMISSED)
-            return;
-
-        // Avoid sending the request multiple times
-        if (notification._remoteWithdrawn)
-            return;
-
-        notification._remoteWithdrawn = true;
-
-        // Recreate the notification id as it would've been sent
-        const target = new GLib.Variant('(ssbv)', [
-            '*',
-            'withdrawNotification',
-            true,
-            new GLib.Variant('s', `gtk|${this._appId}|${id}`),
-        ]);
-        const platformData = getPlatformData();
-
-        Gio.DBus.session.call(
-            APP_ID,
-            APP_PATH,
-            'org.freedesktop.Application',
-            'ActivateAction',
-            GLib.Variant.new('(sava{sv})', ['device', [target], platformData]),
-            null,
-            Gio.DBusCallFlags.NO_AUTO_START,
-            -1,
-            null,
-            (connection, res) => {
-                try {
-                    connection.call_finish(res);
-                } catch {
-                    // If we fail, reset in case we can try again
-                    notification._remoteWithdrawn = false;
-                }
-            }
-        );
-    };
-
-    NotificationDaemon.GtkNotificationDaemonAppSource.prototype
-        ._withdrawGSConnectNotification = _withdrawGSConnectNotification;
-}
-
-
-/**
- * Restore the prototype for
- * {@link NotificationDaemon.GtkNotificationDaemonAppSource}.
- */
-export function unpatchGtkNotificationSources() {
-    NotificationDaemon.GtkNotificationDaemonAppSource.prototype
-        .addNotification = _addNotification;
-
-    delete NotificationDaemon.GtkNotificationDaemonAppSource
-        .prototype._withdrawGSConnectNotification;
 }
