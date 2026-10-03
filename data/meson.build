@@ -2,10 +2,6 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-subdir('firewalld')
-subdir('metainfo')
-
-
 # metadata.json
 configure_file(
   input: 'metadata.json.in',

@@ -1,4 +1,3 @@
-data/metainfo/org.gnome.Shell.Extensions.GSConnect.metainfo.xml.in
 data/ui/connect-dialog.ui
 data/ui/contact-chooser.ui
 data/ui/contacts-address-row.ui
