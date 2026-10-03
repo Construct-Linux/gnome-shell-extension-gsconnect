@@ -390,16 +390,10 @@ Object.defineProperties(Gio.TlsCertificate.prototype, {
      */
     'common_name': {
         get: function () {
-            if (!this.__common_name) {
-                const proc = new Gio.Subprocess({
-                    argv: [Config.OPENSSL_PATH, 'x509', '-noout', '-subject', '-inform', 'pem'],
-                    flags: Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE,
-                });
-                proc.init(null);
-
-                const stdout = proc.communicate_utf8(this.certificate_pem, null)[1];
-                this.__common_name = /(?:cn|CN) ?= ?([^,\n]*)/.exec(stdout)[1];
-            }
+            // The TLS backend parses the subject already; spawning openssl
+            // here blocked the main loop once for every peer certificate
+            if (!this.__common_name)
+                this.__common_name = /(?:^|,)\s*CN\s*=\s*([^,]*)/i.exec(this.subject_name)[1];
 
             return this.__common_name;
         },
