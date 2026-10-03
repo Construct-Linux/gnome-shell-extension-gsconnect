@@ -17,9 +17,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
     </key>
 
     <!-- Service Settings -->
-    <key name="id" type="s">
-      <default>""</default>
-    </key>
     <key name="name" type="s">
       <default>""</default>
     </key>

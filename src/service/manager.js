@@ -117,12 +117,14 @@ const Manager = GObject.registerClass({
                     GLib.build_filenamev([Config.CONFIGDIR, 'certificate.pem']),
                     GLib.build_filenamev([Config.CONFIGDIR, 'private.pem']),
                     null);
-                if (this.settings.get_boolean('missing-openssl'))
+                if (this.settings.get_boolean('missing-openssl')) {
                     app?.withdraw_notification('gsconnect-missing-openssl');
-                this.settings.set_boolean('missing-openssl', false);
+                    this.settings.set_boolean('missing-openssl', false);
+                }
             } catch (e) {
                 if (e instanceof MissingOpensslError) {
-                    this.settings.set_boolean('missing-openssl', true);
+                    if (!this.settings.get_boolean('missing-openssl'))
+                        this.settings.set_boolean('missing-openssl', true);
                     app?.notify_error(e, 'gsconnect-missing-openssl');
                 }
                 throw e;
